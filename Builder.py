@@ -115,16 +115,13 @@ class ProjectConverter:
 
         return line
 
-
-        # Check if line contains a function call
-
-        # Check if line contains a class instantiation
-
+        
     def build_project(self):
         print("-> Builder: Building output file 'Output.py' from parsed project.")
 
         import_order = []
         custom_import_order = []
+        custom_import_from_fixes = []
         for key in self.static_classes.keys():
            
             print("   -> Processing imports for file.")
@@ -144,16 +141,21 @@ class ProjectConverter:
                 imported = i[1]
 
                 if module in [x.replace(".py", "") for x in os.listdir(self.project_folder)]:
-                    print("      -> Custom import from not used: from '%s.py' import '%s'" % (module, imported))
+                    print("      -> Custom import from used: from '%s.py' import '%s'" % (module, imported))
+
+                    for i in imported.split(", "):
+                        fixed_import = "%s = %s.%s" % (i, module, i)
+                        custom_import_from_fixes.append(fixed_import)
+
                     custom_import_order.append(module)
                 else:
                     print("      -> Import from used: from '%s.py' import '%s'" % (module, imported))
 
-                import_order.append("from %s import %s" % (module, imported))
+                    import_order.append("from %s import %s" % (module, imported))
 
         output_file = "#   IMPORTS\n"
         output_file += "\n".join(import_order)
-        
+
         for i in custom_import_order:
             output_file += "\n\n#   DEPENDENCY '%s.py'" % (i)
             class_definition = "class %s(object):" % (i)
@@ -162,6 +164,9 @@ class ProjectConverter:
             for line in self.static_classes[i]["Body"].split("\n"):
                 output_file += "    %s\n" % self.fix_references(line,i)
         
+        output_file += "\n\n#    FIXED FROM IMPORTS\n"
+        output_file += "\n".join(custom_import_from_fixes)
+
         # Find main file and use it.
         main_file = self.static_classes[self.entry_file.replace(".py", "")]
         
@@ -287,3 +292,6 @@ def main():
 
     cvt.parse_project()
     cvt.build_project()
+
+
+main()
