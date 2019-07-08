@@ -1,4 +1,4 @@
-import ast, os, copy
+import ast, os, copy, re
 
 class ConversionError(Exception):
     pass
@@ -74,6 +74,52 @@ class ProjectConverter:
 
                 #print(self.static_classes[f.replace(".py", "")]["Body"])
     
+    def fix_references(self, line, mod_name):
+        # References in 'global' scope should not be fixed.
+        if line.count("    ") == 0: # Scope is global
+            return line
+
+        # Fix all valid occurences of variable name in line with their proper scope
+        for x in self.static_classes[mod_name]["Declares"]["variables"]:
+            occurences = [m.start() for m in re.finditer(x, line)]
+
+            for occurence in occurences:
+                if line[occurence-1] in ["(", ".", "[", "{", "", " "]:
+                    if line[occurence-1] == ".":
+                        return line
+                    new_line = line[:occurence] + mod_name + "." + line[occurence:]
+                    return new_line
+        
+        # Fix all valid occurences of a function name in line with their proper scope
+        for x in self.static_classes[mod_name]["Declares"]["functions"]:
+            occurences = [m.start() for m in re.finditer(x, line)]
+
+            for occurence in occurences:
+                if line[occurence-1] in ["(", ".", "[", "{", "", " "] and "def" not in line:
+                    if line[occurence-1] == ".":
+                        return line
+                    new_line = line[:occurence] + mod_name + "." + line[occurence:]
+                    return new_line
+        
+        # Fix all valid occurences of a function name in line with their proper scope
+        for x in self.static_classes[mod_name]["Declares"]["classes"]:
+            occurences = [m.start() for m in re.finditer(x, line)]
+
+            for occurence in occurences:
+                if line[occurence-1] in ["(", ".", "[", "{", "", " "] and "class" not in line:
+                    if line[occurence-1] == ".":
+                        return line
+                    new_line = line[:occurence] + mod_name + "." + line[occurence:]
+                    return new_line
+        
+
+        return line
+
+
+        # Check if line contains a function call
+
+        # Check if line contains a class instantiation
+
     def build_project(self):
         print("-> Builder: Building output file 'Output.py' from parsed project.")
 
@@ -114,8 +160,16 @@ class ProjectConverter:
             
             output_file += "\n%s\n" % (class_definition)
             for line in self.static_classes[i]["Body"].split("\n"):
-                output_file += "    %s\n" % (line)
-                    
+                output_file += "    %s\n" % self.fix_references(line,i)
+        
+        # Find main file and use it.
+        main_file = self.static_classes[self.entry_file.replace(".py", "")]
+        
+        output_file += "\n\n#   MAIN FILE '%s'" % (self.entry_file)
+        for line in main_file["Body"].split("\n"):
+            output_file += "%s\n" % (line)
+
+
         print(output_file)
                
     def get_file_count(self):
@@ -228,7 +282,8 @@ class ProjectConverter:
         pass
 
 
-cvt = ProjectConverter("C:\\Users\\Kiwan\\Documents\\PythonScript\\Script")
+def main():
+    cvt = ProjectConverter("C:\\Users\\Kiwan\\Documents\\PythonScript\\Script")
 
-cvt.parse_project()
-cvt.build_project()
+    cvt.parse_project()
+    cvt.build_project()
