@@ -1,4 +1,6 @@
-import ast, os, copy, re
+import ast, os, copy, re, sys, time
+
+dir_path = os.path.dirname(os.path.realpath(__file__))
 
 class ConversionError(Exception):
     pass
@@ -39,6 +41,8 @@ class ProjectConverter:
 
         }
 
+        self.output = ""
+
     def parse_project(self):
         for f in self.project_files:
             file_path = "%s\\%s" % (self.project_folder, f)
@@ -48,7 +52,7 @@ class ProjectConverter:
             with open(file_path, "r") as fopen:
                 file_lines = fopen.readlines()
                 file_tree = ast.parse("".join(file_lines), "-", "exec")
-
+                
                 self.handle_module(file_tree)
                 
                 self.static_classes.update({
@@ -112,10 +116,9 @@ class ProjectConverter:
                     new_line = line[:occurence] + mod_name + "." + line[occurence:]
                     return new_line
         
-
         return line
 
-        
+
     def build_project(self):
         print("-> Builder: Building output file 'Output.py' from parsed project.")
 
@@ -124,7 +127,7 @@ class ProjectConverter:
         custom_import_from_fixes = []
         for key in self.static_classes.keys():
            
-            print("   -> Processing imports for file.")
+            print("   -> Processing imports for file. '%s'" % (key))
            
             for i in [f for f in self.static_classes[key]["Imports"] if type(f) != list and f.startswith("import")]:
                 import_name = i.split(" ")[1]
@@ -175,7 +178,7 @@ class ProjectConverter:
             output_file += "%s\n" % (line)
 
 
-        print(output_file)
+        self.output = output_file
                
     def get_file_count(self):
         return len(self.project_files)
@@ -284,14 +287,27 @@ class ProjectConverter:
         self.walk(node, "")
     
     def output_final_file(self, obfuscate=False, minify=False, randomize=False, junkcode=False):
-        pass
+        return self.output
 
 
 def main():
-    cvt = ProjectConverter("C:\\Users\\Kiwan\\Documents\\PythonScript\\Script")
+    file_path = ""
+    if len(sys.argv) > 1:
+        file_path = sys.argv[1]
+    else:
+        file_path = input("-> Project Parser: Enter project directory: ")
 
-    cvt.parse_project()
-    cvt.build_project()
+    if os.path.isdir(file_path):
+        print("-> Project Parser: Parsing '%s'" % file_path)
+        cvt = ProjectConverter(file_path)
+        cvt.parse_project()
+        cvt.build_project()
 
+
+        with open("%s\\Output.py" % (dir_path), "w") as output:
+            output.write(cvt.output_final_file())
+    else:
+        print("-> Project Parser: Directory does not exist. Cannot parse project folder")
+        time.sleep(2.5)
 
 main()
